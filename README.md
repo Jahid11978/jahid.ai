@@ -1,105 +1,122 @@
 # JAHID.AI
 
-Unified AI platform monorepo.
+Unified AI platform monorepo and controlled agent-engineering system.
 
-## Current baseline: v27.4 — Autonomous Reliability & Self-Healing Fabric
+## Current baseline: v27.5.0
 
-JAHID.AI consolidates the cognitive core, agent runtime, workflows, skills/tools, operations, security, deployment, GitHub controls, v26.0 Unified Data & Memory Fabric, v27.3 operational telemetry, and v27.4 bounded reliability under one repository governance layer.
+JAHID.AI consolidates the cognitive core, agent runtime, workflows, skills/tools, memory fabric, telemetry, reliability, governance, GitHub controls, and deployment boundaries under one repository.
 
-### Platform layers
+## Platform layers
 
-- Universal Control Plane
-- Cognitive Core and multi-agent orchestration
+- Universal control plane
+- Cognitive core and multi-agent orchestration
 - Agent runtime and lifecycle governance
-- Workflow engine
+- Workflow and task execution
 - Skills and tool registry
 - Research and knowledge systems
-- Unified Memory Gateway
+- Unified memory gateway
 - Working, episodic, semantic, procedural, project, agent and knowledge memory
 - Retrieval, ranking and provenance
 - Retention, archive, export and deletion
-- AES-256-GCM application encryption boundary
-- PostgreSQL, Redis and vector-store adapter contracts
-- Backup registry, checksum verification and disaster recovery
-- Observability and telemetry fabric
+- Application encryption boundary
+- Storage adapter contracts
+- Backup and recovery boundaries
+- Observability and telemetry
 - Structured agent, workflow, memory and security events
 - Trace and correlation IDs
-- Metrics and component health
-- Credential redaction at telemetry boundaries
-- Autonomous Reliability & Self-Healing Fabric
+- Component health registry
+- Autonomous reliability and bounded self-healing
 - Failure classification and bounded recovery
-- Circuit breakers and recovery verification
+- Circuit breakers and verification
 - Approved-target rollback coordination
-- Escalation for unsafe or non-retryable failures
-- Voice and vision systems
-- Authentication and access control
-- REST, GraphQL and WebSocket APIs
-- Docker/Kubernetes and Cloudflare deployment layers
-- GitHub Actions CI/CD
-- Governance, ownership and third-party license records
+- GitHub engineering controls
+- Cloudflare deployment boundary
+- Governance, ownership and third-party records
 
-## Unified operational flow
+## Autonomous GitHub engineering
+
+The repository now defines an explicit control loop:
 
 ```text
-Agent / Workflow / Memory / Security
-                |
-        Telemetry Boundary
-                |
-     +----------+----------+
-     |          |          |
-   Events     Metrics    Traces
-     |          |          |
-     +----------+----------+
-                |
-        Health Registry
-                |
-      Reliability Engine
-                |
- Detect → Classify → Protect
-                |
-             Recover
-                |
-             Verify
-          /           \
-       healthy       failed
-          |             |
-        Resume    Rollback / Escalate
-          |             |
-          +------ Control Plane
+Request
+  ↓
+Inspect
+  ↓
+Plan
+  ↓
+Risk classify
+  ↓
+Create branch
+  ↓
+Implement
+  ↓
+Test
+  ↓
+Security checks
+  ↓
+Review
+  ↓
+Draft PR
+  ↓
+Approval policy
+  ↓
+Merge
+  ↓
+Deploy
+  ↓
+Health verify
+  ↓
+Rollback / escalate when required
 ```
 
-Telemetry is observational. It does not grant permissions, approve actions, or bypass security and human-approval controls. Sensitive fields are redacted before export.
+See:
 
-Reliability is bounded and deny-by-default. High-impact recovery requires an explicit control-plane approval token. The reliability layer cannot invent rollback revisions, bypass authentication, delete data, or perform unapproved external or financial actions.
+- `AGENTS.md` — repository agent operating contract
+- `AGENT_GOVERNANCE.md` — agent governance
+- `docs/autonomy/control-plane.md` — autonomous GitHub control plane
+- `docs/custom-gpt/JAHID_GITHUB_AGENT.md` — Custom GPT instruction set
 
-## Memory architecture
+## Reliability
+
+Recovery is fail-closed:
 
 ```text
-Agent / Workflow
-      |
-Memory Gateway
-      |
-Permission Check
-      |
-Memory Policy
-      |
-Retrieve / Write
-      |
-Provenance
-      |
-+-------------------------------+
-| PostgreSQL | Redis | Vector DB |
-+-------------------------------+
-      |
-Backup / Recovery / Lifecycle
+Detect → Classify → Protect → Recover → Verify → Resume
+                                  ↓
+                            Rollback / Escalate
 ```
 
-## Development
+Missing handlers, missing verification, malformed health results, and unavailable rollback handlers cannot be treated as successful recovery.
 
-The memory package lives under `backend/memory/`. The telemetry package lives under `backend/telemetry/`. The reliability package lives under `backend/reliability/`. Local adapters remain deterministic for tests/development. Production storage, telemetry exporters, and infrastructure recovery handlers should be injected behind their respective boundaries.
+## CI
 
-Run the repository tests from the project root with:
+Pull requests and pushes to `main` run the unified Python checks:
+
+```text
+Compile sources
+    ↓
+Backend tests
+    ↓
+Root tests
+    ↓
+Repository doctor
+```
+
+Additional workflows cover CodeQL, memory-fabric tests, and reliability tests.
+
+## Local validation
+
+From the repository root:
 
 ```bash
-python -m unittest discover -s backend/tests
+python -m compileall -q backend tests scripts
+python -m unittest discover -s backend/tests -p 'test_*.py' -v
+python -m unittest discover -s tests -p 'test_*.py' -v
+python scripts/jahid_doctor.py
 ```
+
+## Safety boundary
+
+Autonomous agents may inspect repositories, create branches, prepare fixes, run tests, and open draft PRs. Production deployment, destructive actions, authentication changes, secret changes, financial actions, ownership/licensing changes, and other high-impact operations remain approval-gated.
+
+JAHID.AI must report evidence for every completed action. It must never invent test results, service health, runtime metrics, deployment state, or recovery success.
