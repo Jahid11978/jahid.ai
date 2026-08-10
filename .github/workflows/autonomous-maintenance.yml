@@ -45,5 +45,4 @@ jobs:
         run: |
           gh issue create \
             --title "Automated maintenance failure: ${{ github.run_id }}" \
-            --body "The scheduled JAHID.AI maintenance diagnostics failed.\n\nRun: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\n\nThe GitHub agent should inspect the failing step, reproduce the issue, prepare a branch, and open a draft PR. Do not merge automatically." \
-            --label "maintenance"
+            --body "The scheduled JAHID.AI maintenance diagnostics failed.\n\nRun: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\n\nThe GitHub agent should inspect the failing step, reproduce the issue, prepare a branch, and open a draft PR. Do not merge automatically."
