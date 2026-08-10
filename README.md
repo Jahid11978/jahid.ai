@@ -2,32 +2,36 @@
 
 Unified AI platform monorepo.
 
-## Current baseline: v26.0 — Unified Data & Memory Fabric
+## Current baseline: v27.2 — Unified Platform + Governance
 
-JAHID.AI now provides a single memory boundary for agents, workflows and cognitive services. Agents do not access PostgreSQL, Redis or vector storage directly; they use the Memory Gateway.
+JAHID.AI consolidates the existing cognitive core, agent runtime, workflows, skills/tools, operations, security, deployment, GitHub controls and the v26.0 Unified Data & Memory Fabric under one repository governance layer.
 
-### Platform modules
+### Platform layers
 
-- Next.js web application
-- FastAPI backend
-- AI kernel and multi-agent orchestration
+- Universal Control Plane
+- Cognitive Core and multi-agent orchestration
+- Agent runtime and lifecycle governance
+- Workflow engine
+- Skills and tool registry
+- Research and knowledge systems
 - Unified Memory Gateway
 - Working, episodic, semantic, procedural, project, agent and knowledge memory
 - Retrieval, ranking and provenance
 - Retention, archive, export and deletion
-- Authenticated encryption boundary
+- AES-256-GCM application encryption boundary
 - PostgreSQL, Redis and vector-store adapter contracts
-- Backup registry, checksum verification and disaster-recovery plan
+- Backup registry, checksum verification and disaster recovery
 - Voice and vision systems
-- Workflow engine
-- Agent marketplace and extension framework
-- SDKs and CLI
-- Authentication and billing
+- Authentication and access control
 - REST, GraphQL and WebSocket APIs
-- Docker and Kubernetes deployment
+- Docker/Kubernetes and Cloudflare deployment layers
 - GitHub Actions CI/CD
 - Monitoring and logging
-- Documentation and automated tests
+- Governance, ownership and third-party license records
+
+## Governance
+
+The repository's governance layer records ownership intent for original JAHID.AI material while preserving third-party rights. See `OWNERSHIP.md`, `GOVERNANCE.md`, `AGENT_GOVERNANCE.md`, `PROVENANCE.md`, `THIRD_PARTY.md` and `REGISTRATION.md`.
 
 ## Memory architecture
 
@@ -55,11 +59,9 @@ Backup / Recovery / Lifecycle
 
 `working` · `episodic` · `semantic` · `procedural` · `project` · `agent` · `knowledge` · `archive`
 
-Every record carries provenance metadata including source, timestamps, actor, scope, confidence, classification and retention policy.
-
 ## Security boundary
 
-Sensitive memory uses an application encryption boundary backed by AES-256-GCM. Production keys must come from an external secret manager and never enter agent prompts.
+Sensitive memory uses an application encryption boundary. Production keys must come from an external secret manager and must never enter agent prompts.
 
 ## Development
 
@@ -93,4 +95,10 @@ Skills + Tools + Workflows
 Memory Gateway
    |
 PostgreSQL + Redis + Vector Store
+   |
+Governance + Provenance + Audit
 ```
+
+## Rights
+
+JAHID.AI is proprietary by default unless a specific file or component states otherwise. Third-party components remain subject to their respective licenses and terms. See `THIRD_PARTY.md` and `LICENSE_REGISTRY.md` when present.
