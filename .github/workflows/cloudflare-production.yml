@@ -1,0 +1,58 @@
+name: Cloudflare Production Deployment
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  deployments: write
+
+concurrency:
+  group: cloudflare-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy JAHID.AI to Cloudflare Workers
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Deploy Worker
+        id: deploy
+        uses: cloudflare/wrangler-action@1029e90033977ccf46c2a9b3ddc55e42ad5da467 # v4.0.0
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy
+          wranglerVersion: "4"
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Require deployment URL
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
+        run: |
+          test -n "$DEPLOYMENT_URL" || {
+            echo "Cloudflare deployment completed without a deployment URL output."
+            exit 1
+          }
+          echo "Deployment URL: $DEPLOYMENT_URL"
+          echo "DEPLOYMENT_URL=$DEPLOYMENT_URL" >> "$GITHUB_ENV"
+
+      - name: Smoke test deployment
+        run: |
+          curl --fail --silent --show-error --location \
+            --retry 5 --retry-delay 3 --retry-all-errors \
+            --max-time 30 \
+            "$DEPLOYMENT_URL" \
+            -o /tmp/jahid-ai-response.html
+          test -s /tmp/jahid-ai-response.html
+
+      - name: Verify deployment status
+        run: |
+          echo "JAHID.AI production deployment and HTTP smoke test passed."
