@@ -61,8 +61,17 @@ class MemoryStore(Protocol):
     async def delete(self, memory_id: str) -> None: ...
 
 
+class DenyByDefaultPolicy:
+    """Secure default. Production IAM must be explicitly injected."""
+    def check_read(self, actor: str, scope: str) -> None:
+        raise PermissionError("memory read policy is not configured")
+
+    def check_write(self, actor: str, memory_type: MemoryType, scope: str) -> None:
+        raise PermissionError("memory write policy is not configured")
+
+
 class AllowAllPolicy:
-    """Development policy. Production deployments should inject the IAM policy."""
+    """Explicit development/test policy. Never use as the production IAM policy."""
     def check_read(self, actor: str, scope: str) -> None:
         if not actor or not scope:
             raise PermissionError("actor and scope are required")
@@ -94,7 +103,7 @@ class MemoryGateway:
     """Single entry point for all agent memory reads and writes."""
     def __init__(self, store: MemoryStore | None = None, policy: MemoryPolicy | None = None, provenance: ProvenanceSink | None = None) -> None:
         self.store = store or InMemoryStore()
-        self.policy = policy or AllowAllPolicy()
+        self.policy = policy or DenyByDefaultPolicy()
         self.provenance = provenance
 
     async def remember(self, actor: str, content: str, memory_type: MemoryType, scope: str, *, source: str = "agent", agent: str | None = None, project: str | None = None, confidence: float = 1.0, classification: str = "internal", retention_policy: str = "standard", approved: bool = False) -> MemoryRecord:
