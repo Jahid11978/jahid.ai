@@ -2,9 +2,9 @@
 
 Unified AI platform monorepo.
 
-## Current baseline: v27.2 — Unified Platform + Governance
+## Current baseline: v27.3 — Observability & Telemetry Fabric
 
-JAHID.AI consolidates the existing cognitive core, agent runtime, workflows, skills/tools, operations, security, deployment, GitHub controls and the v26.0 Unified Data & Memory Fabric under one repository governance layer.
+JAHID.AI consolidates the cognitive core, agent runtime, workflows, skills/tools, operations, security, deployment, GitHub controls, v26.0 Unified Data & Memory Fabric, and v27.3 operational telemetry under one repository governance layer.
 
 ### Platform layers
 
@@ -21,17 +21,37 @@ JAHID.AI consolidates the existing cognitive core, agent runtime, workflows, ski
 - AES-256-GCM application encryption boundary
 - PostgreSQL, Redis and vector-store adapter contracts
 - Backup registry, checksum verification and disaster recovery
+- Observability and telemetry fabric
+- Structured agent, workflow, memory and security events
+- Trace and correlation IDs
+- Metrics and component health
+- Credential redaction at telemetry boundaries
 - Voice and vision systems
 - Authentication and access control
 - REST, GraphQL and WebSocket APIs
 - Docker/Kubernetes and Cloudflare deployment layers
 - GitHub Actions CI/CD
-- Monitoring and logging
 - Governance, ownership and third-party license records
 
-## Governance
+## Observability boundary
 
-The repository's governance layer records ownership intent for original JAHID.AI material while preserving third-party rights. See `OWNERSHIP.md`, `GOVERNANCE.md`, `AGENT_GOVERNANCE.md`, `PROVENANCE.md`, `THIRD_PARTY.md` and `REGISTRATION.md`.
+```text
+Agent / Workflow / Memory / Security
+                |
+        Telemetry Boundary
+                |
+     +----------+----------+
+     |          |          |
+   Events     Metrics    Traces
+     |          |          |
+     +----------+----------+
+                |
+        Health Registry
+                |
+      Universal Control Plane
+```
+
+Telemetry is observational. It does not grant permissions, approve actions, or bypass security and human-approval controls. Sensitive fields are redacted before export.
 
 ## Memory architecture
 
@@ -55,50 +75,12 @@ Provenance
 Backup / Recovery / Lifecycle
 ```
 
-## Memory types
-
-`working` · `episodic` · `semantic` · `procedural` · `project` · `agent` · `knowledge` · `archive`
-
-## Security boundary
-
-Sensitive memory uses an application encryption boundary. Production keys must come from an external secret manager and must never enter agent prompts.
-
 ## Development
 
-The memory package lives under `backend/memory/`. The local adapter is deterministic and intended for tests/development. PostgreSQL, Redis and vector storage are represented by explicit adapter contracts so production implementations can be connected without allowing agents to bypass the gateway.
+The memory package lives under `backend/memory/`. The telemetry package lives under `backend/telemetry/`. Local adapters remain deterministic for tests/development. Production storage and telemetry exporters should be injected behind their respective boundaries.
 
-Install the memory dependency set with:
-
-```bash
-python -m pip install -r backend/requirements-memory.txt
-```
-
-Run the memory tests from `backend/`:
+Run the repository tests from the project root with:
 
 ```bash
-python -m unittest discover -s tests
+python -m unittest discover -s backend/tests
 ```
-
-## Architecture
-
-```text
-User Apps
-   |
-Universal Control Plane
-   |
-FastAPI Gateway
-   |
-Cognitive Core + Agent Runtime
-   |
-Skills + Tools + Workflows
-   |
-Memory Gateway
-   |
-PostgreSQL + Redis + Vector Store
-   |
-Governance + Provenance + Audit
-```
-
-## Rights
-
-JAHID.AI is proprietary by default unless a specific file or component states otherwise. Third-party components remain subject to their respective licenses and terms. See `THIRD_PARTY.md` and `LICENSE_REGISTRY.md` when present.
