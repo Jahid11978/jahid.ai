@@ -1,0 +1,10 @@
+.git/
+.github/
+repos/
+cloudflare/
+wrangler.toml
+.assetsignore
+AGENTS.md
+LICENSE
+SUMMARY.md
+README.md
