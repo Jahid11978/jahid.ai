@@ -37,7 +37,3 @@ jobs:
 
       - name: Run repository doctor
         run: python scripts/jahid_doctor.py
-
-  codeql:
-    name: CodeQL
-    uses: ./.github/workflows/codeql.yml
