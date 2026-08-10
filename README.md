@@ -107,7 +107,7 @@ Required GitHub production environment secrets:
 - `CLOUDFLARE_API_TOKEN`
 - `CLOUDFLARE_ACCOUNT_ID`
 
-Cloudflare's official documentation requires a Cloudflare API token and account ID for non-interactive GitHub Actions deployment. citeturn0search0
+Cloudflare requires a Cloudflare API token and account ID for non-interactive GitHub Actions deployment.
 
 ## Memory architecture
 
