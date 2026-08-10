@@ -2,9 +2,9 @@
 
 Unified AI platform monorepo.
 
-## Current baseline: v27.3 — Observability & Telemetry Fabric
+## Current baseline: v27.4 — Autonomous Reliability & Self-Healing Fabric
 
-JAHID.AI consolidates the cognitive core, agent runtime, workflows, skills/tools, operations, security, deployment, GitHub controls, v26.0 Unified Data & Memory Fabric, and v27.3 operational telemetry under one repository governance layer.
+JAHID.AI consolidates the cognitive core, agent runtime, workflows, skills/tools, operations, security, deployment, GitHub controls, v26.0 Unified Data & Memory Fabric, v27.3 operational telemetry, and v27.4 bounded reliability under one repository governance layer.
 
 ### Platform layers
 
@@ -26,6 +26,11 @@ JAHID.AI consolidates the cognitive core, agent runtime, workflows, skills/tools
 - Trace and correlation IDs
 - Metrics and component health
 - Credential redaction at telemetry boundaries
+- Autonomous Reliability & Self-Healing Fabric
+- Failure classification and bounded recovery
+- Circuit breakers and recovery verification
+- Approved-target rollback coordination
+- Escalation for unsafe or non-retryable failures
 - Voice and vision systems
 - Authentication and access control
 - REST, GraphQL and WebSocket APIs
@@ -33,7 +38,7 @@ JAHID.AI consolidates the cognitive core, agent runtime, workflows, skills/tools
 - GitHub Actions CI/CD
 - Governance, ownership and third-party license records
 
-## Observability boundary
+## Unified operational flow
 
 ```text
 Agent / Workflow / Memory / Security
@@ -48,10 +53,24 @@ Agent / Workflow / Memory / Security
                 |
         Health Registry
                 |
-      Universal Control Plane
+      Reliability Engine
+                |
+ Detect → Classify → Protect
+                |
+             Recover
+                |
+             Verify
+          /           \
+       healthy       failed
+          |             |
+        Resume    Rollback / Escalate
+          |             |
+          +------ Control Plane
 ```
 
 Telemetry is observational. It does not grant permissions, approve actions, or bypass security and human-approval controls. Sensitive fields are redacted before export.
+
+Reliability is bounded and deny-by-default. High-impact recovery requires an explicit control-plane approval token. The reliability layer cannot invent rollback revisions, bypass authentication, delete data, or perform unapproved external or financial actions.
 
 ## Memory architecture
 
@@ -77,7 +96,7 @@ Backup / Recovery / Lifecycle
 
 ## Development
 
-The memory package lives under `backend/memory/`. The telemetry package lives under `backend/telemetry/`. Local adapters remain deterministic for tests/development. Production storage and telemetry exporters should be injected behind their respective boundaries.
+The memory package lives under `backend/memory/`. The telemetry package lives under `backend/telemetry/`. The reliability package lives under `backend/reliability/`. Local adapters remain deterministic for tests/development. Production storage, telemetry exporters, and infrastructure recovery handlers should be injected behind their respective boundaries.
 
 Run the repository tests from the project root with:
 
