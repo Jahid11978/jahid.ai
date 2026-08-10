@@ -1,0 +1,41 @@
+name: Controller Recovery Verification
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 * * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  recovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Verify deployment control-plane source
+        run: |
+          python -m compileall backend/deployment
+
+      - name: Verify event-chain implementation
+        run: |
+          python - <<'PY'
+          from backend.deployment.event_chain import ChainEvent, EventChain
+          chain = EventChain()
+          chain.append(ChainEvent("TEST", "production", "ci", {"ok": True}))
+          chain.append(ChainEvent("TEST2", "production", "ci", {"ok": True}))
+          assert chain.verify()
+          print("event chain: OK")
+          PY
+
+      - name: Verify release policy
+        run: |
+          python - <<'PY'
+          from backend.deployment.policy import DEFAULT_POLICIES
+          assert DEFAULT_POLICIES["production"].require_human_approval
+          assert DEFAULT_POLICIES["production"].can_auto_repair_drift is False
+          assert DEFAULT_POLICIES["production"].rollout_percentages == (5, 10, 25, 50, 100)
+          print("production policy: OK")
+          PY
