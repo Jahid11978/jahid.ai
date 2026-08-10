@@ -1,27 +1,27 @@
 from __future__ import annotations
 
 import base64
-import hashlib
-import hmac
+import os
+
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 
 class EncryptionBoundary:
-    """Small application boundary; production keys must come from a secret manager."""
+    """AES-256-GCM boundary. Keys must come from an external secret manager."""
     def __init__(self, key: bytes):
-        if len(key) < 32:
-            raise ValueError("encryption key must be at least 32 bytes")
+        if len(key) != 32:
+            raise ValueError("AES-256-GCM requires a 32-byte key")
         self._key = key
 
-    def protect(self, plaintext: str) -> str:
-        # Deterministic integrity envelope for the interface. Replace with AES-GCM/KMS in production.
-        payload = plaintext.encode()
-        tag = hmac.new(self._key, payload, hashlib.sha256).digest()
-        return base64.urlsafe_b64encode(tag + payload).decode()
+    def protect(self, plaintext: str, *, associated_data: bytes | None = None) -> str:
+        nonce = os.urandom(12)
+        ciphertext = AESGCM(self._key).encrypt(nonce, plaintext.encode(), associated_data)
+        return base64.urlsafe_b64encode(nonce + ciphertext).decode()
 
-    def verify(self, protected: str) -> str:
+    def verify(self, protected: str, *, associated_data: bytes | None = None) -> str:
         raw = base64.urlsafe_b64decode(protected.encode())
-        tag, payload = raw[:32], raw[32:]
-        expected = hmac.new(self._key, payload, hashlib.sha256).digest()
-        if not hmac.compare_digest(tag, expected):
-            raise ValueError("memory integrity verification failed")
-        return payload.decode()
+        if len(raw) < 13:
+            raise ValueError("invalid encrypted memory payload")
+        nonce, ciphertext = raw[:12], raw[12:]
+        plaintext = AESGCM(self._key).decrypt(nonce, ciphertext, associated_data)
+        return plaintext.decode()
