@@ -64,12 +64,17 @@ class ReliabilityEngine:
             if stage == RecoveryStage.VERIFY:
                 result = await self._run(stage, plan)
                 plan.verification = result or {}
+                if plan.verification.get("healthy") is True:
+                    plan.completed.append(stage)
+                    continue
                 if plan.verification.get("healthy") is False:
                     plan.completed.append(RecoveryStage.ROLLBACK)
                     await self._run(RecoveryStage.ROLLBACK, plan)
                     return plan
-                plan.completed.append(stage)
-                continue
+                # Missing or malformed verification must never be treated as healthy.
+                # Escalate instead of performing an unverified resume or destructive rollback.
+                plan.completed.append(RecoveryStage.ESCALATE)
+                return plan
 
             await self._run(stage, plan)
             plan.completed.append(stage)
