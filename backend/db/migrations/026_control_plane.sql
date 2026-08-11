@@ -28,7 +28,11 @@ CREATE TABLE IF NOT EXISTS release_dependencies (
     release_id TEXT NOT NULL REFERENCES release_registry(release_id),
     component_name TEXT NOT NULL,
     depends_on TEXT NOT NULL,
-    PRIMARY KEY (release_id, component_name, depends_on)
+    PRIMARY KEY (release_id, component_name, depends_on),
+    FOREIGN KEY (release_id, component_name)
+        REFERENCES release_components(release_id, component_name),
+    FOREIGN KEY (release_id, depends_on)
+        REFERENCES release_components(release_id, component_name)
 );
 
 CREATE TABLE IF NOT EXISTS lkg_registry (
