@@ -53,7 +53,8 @@ def evaluate_canary(stable: dict[str, float], canary: dict[str, float], policy: 
         reasons.append("error_rate_regression")
     stable_p95 = stable.get("p95_ms")
     canary_p95 = canary.get("p95_ms")
-    if stable_p95 is not None and canary_p95 is not None:
-        if canary_p95 - stable_p95 > policy.maximum_p95_delta_ms:
-            reasons.append("latency_regression")
+    if stable_p95 is None or canary_p95 is None:
+        return "WAIT", ["missing_latency_sample"]
+    if canary_p95 - stable_p95 > policy.maximum_p95_delta_ms:
+        reasons.append("latency_regression")
     return ("ROLLBACK", reasons) if reasons else ("PROMOTE", [])
