@@ -1,0 +1,1 @@
+{"minimum_requests":5000,"maximum_error_rate":0.01,"maximum_error_rate_delta":0.005,"maximum_p95_delta_ms":250,"required_approvals":1,"require_security_attestation":true,"require_contract_tests":true,"require_human_approval":true}
