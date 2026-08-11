@@ -36,9 +36,13 @@ jobs:
         run: python -m compileall -q backend
 
       - name: Run full backend tests
+        env:
+          PYTHONPATH: ${{ github.workspace }}
         run: python -m unittest discover -s backend/tests -v
 
       - name: Run reliability tests
+        env:
+          PYTHONPATH: ${{ github.workspace }}
         run: python -m unittest backend.tests.test_reliability -v
 
   cloudflare-config:
