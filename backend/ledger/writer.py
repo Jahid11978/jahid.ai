@@ -32,7 +32,12 @@ class AuditLedger:
             record = dict(event)
             record["sequence"] = len(self._events) + 1
             record["previous_event_hash"] = previous
-            record["event_hash"] = event_hash(record, previous)
+            hash_input = {
+                key: value
+                for key, value in record.items()
+                if key != "previous_event_hash"
+            }
+            record["event_hash"] = event_hash(hash_input, previous)
             self._events.append(record)
             return dict(record)
 
