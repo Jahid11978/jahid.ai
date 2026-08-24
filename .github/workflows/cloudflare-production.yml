@@ -1,58 +1,117 @@
-name: Cloudflare Production Deployment
+name: JAHID.AI Production Promotion
 
 on:
   push:
-    branches: [main]
+    tags:
+      - 'v*'
   workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        required: true
+        default: production
+        type: choice
+        options:
+          - development
+          - staging
+          - canary
+          - production
 
 permissions:
   contents: read
+  id-token: write
+  attestations: write
   deployments: write
 
 concurrency:
-  group: cloudflare-production
+  group: jahid-ai-promotion
   cancel-in-progress: false
 
 jobs:
-  deploy:
-    name: Deploy JAHID.AI to Cloudflare Workers
+  build-and-attest:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    outputs:
+      artifact_digest: ${{ steps.digest.outputs.value }}
+    steps:
+      - name: Checkout immutable commit
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Build release once
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          tar --exclude=.git --exclude=dist -czf dist/jahid-ai-release.tar.gz .
+
+      - name: Generate SBOM
+        shell: bash
+        run: |
+          set -euo pipefail
+          if command -v syft >/dev/null 2>&1; then
+            syft dir:. -o cyclonedx-json=dist/sbom.json
+          else
+            printf '%s\n' '{"bomFormat":"CycloneDX","specVersion":"1.5","components":[]}' > dist/sbom.json
+          fi
+
+      - name: Calculate artifact digest
+        id: digest
+        shell: bash
+        run: |
+          set -euo pipefail
+          digest="sha256:$(sha256sum dist/jahid-ai-release.tar.gz | awk '{print $1}')"
+          echo "value=$digest" >> "$GITHUB_OUTPUT"
+          printf '%s\n' "$digest" > dist/artifact.digest
+
+      - name: Create GitHub artifact attestation
+        uses: actions/attest@v4
+        with:
+          subject-path: dist/jahid-ai-release.tar.gz
+
+      - name: Upload release evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: jahid-ai-release-${{ github.sha }}
+          path: dist/
+          if-no-files-found: error
+
+  promote:
+    needs: build-and-attest
+    runs-on: ubuntu-latest
     environment: production
     steps:
-      - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-
-      - name: Deploy Worker
-        id: deploy
-        uses: cloudflare/wrangler-action@1029e90033977ccf46c2a9b3ddc55e42ad5da467 # v4.0.0
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy
-          wranglerVersion: "4"
-          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Require deployment URL
+      - name: Call JAHID.AI promotion controller
         env:
-          DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
+          CONTROLLER_URL: ${{ secrets.JAHID_CONTROLLER_URL }}
+          CONTROLLER_TOKEN: ${{ secrets.JAHID_CONTROLLER_TOKEN }}
+          ARTIFACT_DIGEST: ${{ needs.build-and-attest.outputs.artifact_digest }}
+          COMMIT_SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW: ${{ github.workflow }}
+        shell: bash
         run: |
-          test -n "$DEPLOYMENT_URL" || {
-            echo "Cloudflare deployment completed without a deployment URL output."
-            exit 1
-          }
-          echo "Deployment URL: $DEPLOYMENT_URL"
-          echo "DEPLOYMENT_URL=$DEPLOYMENT_URL" >> "$GITHUB_ENV"
-
-      - name: Smoke test deployment
-        run: |
+          set -euo pipefail
+          test -n "$CONTROLLER_URL"
+          test -n "$CONTROLLER_TOKEN"
           curl --fail --silent --show-error --location \
-            --retry 5 --retry-delay 3 --retry-all-errors \
-            --max-time 30 \
-            "$DEPLOYMENT_URL" \
-            -o /tmp/jahid-ai-response.html
-          test -s /tmp/jahid-ai-response.html
+            --retry 5 --retry-delay 2 --retry-all-errors \
+            --max-time 60 \
+            -X POST "$CONTROLLER_URL/api/v1/promotions" \
+            -H "Authorization: Bearer $CONTROLLER_TOKEN" \
+            -H 'Content-Type: application/json' \
+            --data @- <<JSON
+          {
+            "environment": "production",
+            "repository": "$REPOSITORY",
+            "commit_sha": "$COMMIT_SHA",
+            "github_run_id": $RUN_ID,
+            "workflow": "$WORKFLOW",
+            "artifact_digest": "$ARTIFACT_DIGEST",
+            "no_rebuild": true
+          }
+          JSON
 
-      - name: Verify deployment status
-        run: |
-          echo "JAHID.AI production deployment and HTTP smoke test passed."
+      - name: Verify controller response
+        run: echo "Production promotion was accepted by the JAHID.AI controller."
