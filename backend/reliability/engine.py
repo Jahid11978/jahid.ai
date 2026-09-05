@@ -79,6 +79,8 @@ class ReliabilityEngine:
             if stage == RecoveryStage.VERIFY:
                 try:
                     result = await self._run_required(stage, plan)
+                    if not isinstance(result, dict):
+                        result = {}
                 except Exception:
                     logger.exception("Verification handler failed for %s", stage.value)
                     return self._escalate(plan, stage)
