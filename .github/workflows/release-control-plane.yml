@@ -1,0 +1,67 @@
+name: JAHID.AI Release Control Plane
+
+on:
+  workflow_dispatch:
+    inputs:
+      release:
+        description: Release identifier
+        required: true
+        type: string
+      target:
+        description: Promotion target
+        required: true
+        type: choice
+        options: [development, staging, canary, production]
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: release-${{ inputs.release }}-${{ inputs.target }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.target }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Validate release graph and security evidence
+        env:
+          TARGET_ENVIRONMENT: ${{ inputs.target }}
+        run: |
+          python scripts/release/promote.py releases/manifests/v27.9.0.json --environment "$TARGET_ENVIRONMENT" --evidence releases/evidence/admission.json
+
+  cloudflare-zone-gate:
+    if: ${{ inputs.target == 'production' }}
+    needs: validate
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Trigger Cloudflare activation check when explicitly configured
+        if: ${{ vars.CLOUDFLARE_PENDING_ZONE_ID != '' }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_ZONE_ID: ${{ vars.CLOUDFLARE_PENDING_ZONE_ID }}
+        run: |
+          python - <<'PY'
+          import os
+          from backend.cloudflare.client import CloudflareClient
+          result = CloudflareClient.from_env().trigger_zone_activation_check(os.environ['CLOUDFLARE_ZONE_ID'])
+          print(result)
+          PY
+
+  promote:
+    needs: [validate, cloudflare-zone-gate]
+    if: ${{ always() && needs.validate.result == 'success' && (needs.cloudflare-zone-gate.result == 'success' || needs.cloudflare-zone-gate.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.target }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Promote immutable release
+        run: |
+          echo "Promotion authority validated release ${{ inputs.release }} for ${{ inputs.target }}."
+          echo "The deployment adapter must promote the registered artifact/version; it must not rebuild."

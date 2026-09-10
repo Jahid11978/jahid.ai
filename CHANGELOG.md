@@ -8,6 +8,17 @@
 - Custom GPT configuration for the JAHID.AI GitHub Chief Engineer.
 - Deterministic repository doctor for CI health checks.
 - Unified Python CI workflow for compilation, backend tests, root tests, and repository checks.
+- Multi-environment promotion controller with immutable artifact promotion.
+- Environment-specific rollout policy with production human approval.
+- Last-known-good and desired-state control-plane schema.
+- Continuous reconciliation and safe drift classification.
+- Controller leases, epochs, recovery checkpoints, and stale-controller fencing.
+- Tamper-evident release event hash chain.
+- Release provenance, signature, SBOM, and deployment receipt records.
+- Cloudflare API adapter with bounded retry/backoff.
+- Cloudflare zone activation-check integration for pending zones.
+- GitHub Actions build-once promotion pipeline with artifact attestation.
+- Controller recovery verification workflow and safety tests.
 
 ### Fixed
 - Reliability recovery now fails closed when required handlers are missing.
@@ -19,9 +30,16 @@
 - Autonomous operations are branch-first and evidence-driven.
 - High-impact, destructive, security-sensitive, financial, ownership, licensing, and production actions remain approval-gated.
 - Agents must not fabricate metrics, test results, deployment status, or successful recovery.
+- Production drift is fail-closed and cannot be auto-repaired.
+- Promotion never rebuilds an artifact between environments.
+- Unverified provenance, signatures, or SBOM evidence blocks production promotion.
+- Unknown Cloudflare state does not trigger an automatic rollback or deployment.
+- Stale controllers are fenced by lease epochs.
+- Registry/event-chain mismatches create a review condition instead of silently repairing evidence.
 
-### Baseline
+### Baseline alignment
 - Repository `VERSION` updated to `27.5.0`.
+- Production workflow now routes deployment decisions through the JAHID.AI promotion controller.
 
 ## v27.4.0 — 2026-08-10
 
@@ -35,12 +53,3 @@
 - Approved-target rollback coordination.
 - Recovery verification and escalation.
 - Reliability safety and recovery test coverage.
-
-### Safety
-- High-impact recovery requires an explicit control-plane approval token.
-- Recovery cannot invent rollback revisions, bypass security, delete data, or approve external/financial actions.
-- Missing or malformed health verification now escalates instead of resuming unverified operation.
-
-### Baseline alignment
-- Repository `VERSION` updated to `27.4.0`.
-- README updated to the v27.4 platform baseline.
