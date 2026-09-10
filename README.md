@@ -1,6 +1,6 @@
 # JAHID.AI
 
-Unified AI platform monorepo.
+Unified AI platform monorepo and controlled agent-engineering system.
 
 ## Current baseline: v27.9.0 — Full Release Control Plane
 
@@ -58,26 +58,27 @@ python scripts/release/promote.py releases/manifests/v27.9.0.json --environment 
 
 ### Existing platform layers
 
-- Universal Control Plane
-- Cognitive Core and multi-agent orchestration
+- Universal control plane
+- Cognitive core and multi-agent orchestration
 - Agent runtime and lifecycle governance
-- Workflow engine
+- Workflow and task execution
 - Skills and tool registry
 - Research and knowledge systems
-- Unified Memory Gateway
+- Unified memory gateway
 - Working, episodic, semantic, procedural, project, agent and knowledge memory
 - Retrieval, ranking and provenance
 - Retention, archive, export and deletion
 - AES-256-GCM application encryption boundary
 - PostgreSQL, Redis and vector-store adapter contracts
 - Backup registry, checksum verification and disaster recovery
-- Observability and telemetry fabric
+- Observability and telemetry
 - Structured agent, workflow, memory and security events
 - Trace and correlation IDs
 - Metrics and component health
-- Autonomous Reliability & Self-Healing Fabric
+- Component health registry
+- Autonomous reliability and bounded self-healing
 - Failure classification and bounded recovery
-- Circuit breakers and recovery verification
+- Circuit breakers and verification
 - Approved-target rollback coordination
 - Escalation for unsafe or non-retryable failures
 - Voice and vision systems
@@ -85,8 +86,98 @@ python scripts/release/promote.py releases/manifests/v27.9.0.json --environment 
 - REST, GraphQL and WebSocket APIs
 - Docker/Kubernetes and Cloudflare deployment layers
 - GitHub Actions CI/CD
-- Governance, ownership and third-party license records
+- GitHub engineering controls
+- Cloudflare deployment boundary
+- Governance, ownership and third-party records
 
 Telemetry is observational. It does not grant permissions, approve actions, or bypass security and human-approval controls. Sensitive fields are redacted before export.
 
 Reliability and release recovery are bounded and deny-by-default. High-impact recovery requires the configured control-plane approval boundary. The system does not invent rollback revisions, bypass authentication, delete data, or perform unapproved external or financial actions.
+
+## Autonomous GitHub engineering
+
+The repository now defines an explicit control loop:
+
+```text
+Request
+  ↓
+Inspect
+  ↓
+Plan
+  ↓
+Risk classify
+  ↓
+Create branch
+  ↓
+Implement
+  ↓
+Test
+  ↓
+Security checks
+  ↓
+Review
+  ↓
+Draft PR
+  ↓
+Approval policy
+  ↓
+Merge
+  ↓
+Deploy
+  ↓
+Health verify
+  ↓
+Rollback / escalate when required
+```
+
+See:
+
+- `AGENTS.md` — repository agent operating contract
+- `AGENT_GOVERNANCE.md` — agent governance
+- `docs/autonomy/control-plane.md` — autonomous GitHub control plane
+- `docs/custom-gpt/JAHID_GITHUB_AGENT.md` — Custom GPT instruction set
+
+## Reliability
+
+Recovery is fail-closed:
+
+```text
+Detect → Classify → Protect → Recover → Verify → Resume
+                                  ↓
+                            Rollback / Escalate
+```
+
+Missing handlers, missing verification, malformed health results, and unavailable rollback handlers cannot be treated as successful recovery.
+
+## CI
+
+Pull requests and pushes to `main` run the unified Python checks:
+
+```text
+Compile sources
+    ↓
+Backend tests
+    ↓
+Root tests
+    ↓
+Repository doctor
+```
+
+Additional workflows cover CodeQL, memory-fabric tests, and reliability tests.
+
+## Local validation
+
+From the repository root:
+
+```bash
+python -m compileall -q backend tests scripts
+python -m unittest discover -s backend/tests -p 'test_*.py' -v
+python -m unittest discover -s tests -p 'test_*.py' -v
+python scripts/jahid_doctor.py
+```
+
+## Safety boundary
+
+Autonomous agents may inspect repositories, create branches, prepare fixes, run tests, and open draft PRs. Production deployment, destructive actions, authentication changes, secret changes, financial actions, ownership/licensing changes, and other high-impact operations remain approval-gated.
+
+JAHID.AI must report evidence for every completed action. It must never invent test results, service health, runtime metrics, deployment state, or recovery success.

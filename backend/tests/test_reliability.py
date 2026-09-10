@@ -24,6 +24,9 @@ class ReliabilityTests(unittest.IsolatedAsyncioTestCase):
     async def test_healthy_verification_allows_resume(self):
         engine = ReliabilityEngine()
 
+        async def protect(_plan):
+            return {"protected": True}
+
         async def recover(_plan):
             return {"recovered": True}
 
@@ -33,6 +36,7 @@ class ReliabilityTests(unittest.IsolatedAsyncioTestCase):
         async def resume(_plan):
             return {"resumed": True}
 
+        engine.register(RecoveryStage.PROTECT, protect)
         engine.register(RecoveryStage.RECOVER, recover)
         engine.register(RecoveryStage.VERIFY, verify)
         engine.register(RecoveryStage.RESUME, resume)
@@ -46,12 +50,43 @@ class ReliabilityTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(plan.completed[-1], RecoveryStage.RESUME)
         self.assertTrue(plan.terminal)
 
+    async def test_missing_protect_handler_escalates(self):
+        engine = ReliabilityEngine()
+        failure = Failure(
+            component="worker",
+            category="transient",
+            message="worker stopped",
+        )
+        plan = await engine.recover(failure)
+        self.assertEqual(plan.completed[-1], RecoveryStage.ESCALATE)
+        self.assertNotIn(RecoveryStage.RECOVER, plan.completed)
+
+    async def test_missing_recovery_handler_escalates(self):
+        engine = ReliabilityEngine()
+
+        async def protect(_plan):
+            return {"protected": True}
+
+        engine.register(RecoveryStage.PROTECT, protect)
+        failure = Failure(
+            component="worker",
+            category="transient",
+            message="worker stopped",
+        )
+        plan = await engine.recover(failure)
+        self.assertEqual(plan.completed[-1], RecoveryStage.ESCALATE)
+        self.assertNotIn(RecoveryStage.RECOVER, plan.completed)
+
     async def test_missing_verification_escalates(self):
         engine = ReliabilityEngine()
+
+        async def protect(_plan):
+            return {"protected": True}
 
         async def recover(_plan):
             return {"recovered": True}
 
+        engine.register(RecoveryStage.PROTECT, protect)
         engine.register(RecoveryStage.RECOVER, recover)
         failure = Failure(
             component="worker",
@@ -61,6 +96,38 @@ class ReliabilityTests(unittest.IsolatedAsyncioTestCase):
         plan = await engine.recover(failure)
         self.assertEqual(plan.completed[-1], RecoveryStage.ESCALATE)
         self.assertNotIn(RecoveryStage.RESUME, plan.completed)
+
+    async def test_unhealthy_verification_rolls_back_when_handler_exists(self):
+        engine = ReliabilityEngine()
+        called = []
+
+        async def protect(_plan):
+            return {"protected": True}
+
+        async def recover(_plan):
+            return {"recovered": True}
+
+        async def verify(_plan):
+            return {"healthy": False}
+
+        async def rollback(_plan):
+            called.append("rollback")
+            return {"rolled_back": True}
+
+        engine.register(RecoveryStage.PROTECT, protect)
+        engine.register(RecoveryStage.RECOVER, recover)
+        engine.register(RecoveryStage.VERIFY, verify)
+        engine.register(RecoveryStage.ROLLBACK, rollback)
+
+        failure = Failure(
+            component="worker",
+            category="transient",
+            message="worker stopped",
+        )
+        plan = await engine.recover(failure)
+        self.assertEqual(plan.completed[-1], RecoveryStage.ROLLBACK)
+        self.assertEqual(called, ["rollback"])
+        self.assertTrue(plan.terminal)
 
     def test_policy_marks_non_retryable_as_approval_required(self):
         failure = Failure(
