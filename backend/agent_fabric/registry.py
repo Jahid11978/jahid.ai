@@ -30,7 +30,8 @@ class AgentRegistry:
         """Return all registered groups in registration order."""
         return tuple(self._groups.values())
     def route(self, capability, group_id=None):
-        """Select an enabled agent that provides the requested capability."""
+    def route(self, capability, group_id=None):
+        if group_id is not None and not self.get_group(group_id).enabled: raise LookupError(f"disabled group: {group_id}")
         candidates=self._agents.values() if group_id is None else (self._agents[x] for x in self.get_group(group_id).agent_ids)
         matches=[a for a in candidates if a.enabled and capability in a.capabilities]
         if not matches: raise LookupError(f"no enabled agent for capability: {capability}")
