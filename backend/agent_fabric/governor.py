@@ -16,12 +16,12 @@ class ActionRequest:
     metadata: dict[str, Any] | None = None
 
 class Governor:
-    HIGH_IMPACT=frozenset({"deploy","production_change","credential_change","financial_action","destructive_operation","ownership_change"})
     def evaluate(self, request: ActionRequest) -> GovernanceDecision:
-        if request.action in self.HIGH_IMPACT or request.risk == "critical":
-            return GovernanceDecision.ALLOW if request.approved else GovernanceDecision.APPROVAL_REQUIRED
         if request.autonomy_level < 0 or request.autonomy_level > 5:
             return GovernanceDecision.DENY
+        if request.action in self.HIGH_IMPACT or request.risk == "critical":
+            return GovernanceDecision.ALLOW if request.approved else GovernanceDecision.APPROVAL_REQUIRED
+        return GovernanceDecision.ALLOW
         return GovernanceDecision.ALLOW
     def authorize(self, request: ActionRequest) -> None:
         decision=self.evaluate(request)
