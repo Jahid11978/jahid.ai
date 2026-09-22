@@ -11,7 +11,11 @@ class Scheduler:
         """Initialize a scheduler for a registry and optional governor."""
         self.registry=registry; self.governor=governor or Governor(); self.results={}; self._active=defaultdict(int)
     def dispatch(self,task: Task,handler: Callable[[Task],dict[str,Any]],group_id=None):
-        """Dispatch a task to an eligible agent while enforcing concurrency."""
+        """Route and run a task while enforcing the agent's concurrency limit.
+
+        Return a blocked result without invoking the handler when the selected
+        agent is at capacity. Routing errors propagate to the caller.
+        """
         agent=self.registry.route(task.capability,group_id)
         if self._active[agent.id]>=agent.max_concurrency: return WorkerResult(task.id,WorkerState.BLOCKED,error="agent concurrency limit reached")
         self._active[agent.id]+=1
@@ -19,7 +23,11 @@ class Scheduler:
             result=Worker("worker-"+task.id,agent,handler,self.governor); result=result.run(task); self.results[task.id]=result; return result
         finally: self._active[agent.id]-=1
     def run_mission(self,mission: Mission,handlers: dict[str,Callable],group_id=None):
-        """Run mission tasks in order until one is blocked or fails."""
+        """Run mission tasks in order until one is blocked or fails.
+
+        A task without a capability handler produces a failed result. Return
+        the results collected before and including the first unsuccessful task.
+        """
         results=[]
         for task in mission.tasks:
             handler=handlers.get(task.capability)
