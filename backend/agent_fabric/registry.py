@@ -7,11 +7,17 @@ class AgentRegistry:
         """Initialize an empty registry of agents and groups."""
         self._agents={}; self._groups={}
     def register_agent(self, agent: Agent):
-        """Register and return an agent after validating its concurrency."""
+        """Register and return an agent whose concurrency limit is at least one.
+
+        Raise ``ValueError`` when the concurrency limit is invalid.
+        """
         if agent.max_concurrency < 1: raise ValueError("max_concurrency must be >= 1")
         self._agents[agent.id]=agent; return agent
     def register_group(self, group: AgentGroup):
-        """Register a group and associate each of its agents with it."""
+        """Register a group and assign its ID to every listed agent.
+
+        Raise ``ValueError`` when any listed agent is not registered.
+        """
         missing=[x for x in group.agent_ids if x not in self._agents]
         if missing: raise ValueError(f"unknown agents: {missing}")
         self._groups[group.id]=group
@@ -30,7 +36,11 @@ class AgentRegistry:
         """Return all registered groups in registration order."""
         return tuple(self._groups.values())
     def route(self, capability, group_id=None):
-        """Select an enabled agent that provides the requested capability."""
+        """Return the enabled matching agent with the highest concurrency limit.
+
+        When ``group_id`` is provided, restrict candidates to that enabled group.
+        Raise ``LookupError`` if the group is disabled or no agent matches.
+        """
         if group_id is not None and not self.get_group(group_id).enabled: raise LookupError(f"disabled group: {group_id}")
         candidates=self._agents.values() if group_id is None else (self._agents[x] for x in self.get_group(group_id).agent_ids)
         matches=[a for a in candidates if a.enabled and capability in a.capabilities]
