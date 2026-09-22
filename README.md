@@ -1,4 +1,4 @@
-# JAHIDS.AI
+# JAHID.AI
 
 Unified AI platform monorepo for governed agents, workers, memory, control, reliability and release operations.
 
