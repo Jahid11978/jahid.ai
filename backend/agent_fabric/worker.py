@@ -11,10 +11,10 @@ class Worker:
     handler: Callable[[Task], dict[str, Any]]
     governor: Governor
     def run(self, task: Task) -> WorkerResult:
-        """Run a governed task and return its outcome without raising failures.
+        """Authorize and run a task, returning execution evidence on success.
 
-        Successful results include execution evidence. ``PermissionError`` yields
-        a blocked result, while any other exception yields a failed result.
+        Convert ``PermissionError`` to a blocked result and other ``Exception``
+        instances to failed results instead of propagating them.
         """
         try:
             action=str(task.input.get("action","compute"))
