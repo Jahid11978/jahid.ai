@@ -5,7 +5,7 @@ from backend.agent_fabric import Agent,AgentGroup,AgentRegistry,Scheduler,Govern
 
 def demo():
     registry=AgentRegistry()
-    registry.register_agent(Agent("planner-1","Planner",frozenset({"plan"}),2))
+    registry.register_agent(Agent("planner-1","Planner",frozenset({"plan"}),max_concurrency=2))
     registry.register_agent(Agent("coder-1","Coder",frozenset({"code"})))
     registry.register_group(AgentGroup("core","Core",("planner-1","coder-1")))
     scheduler=Scheduler(registry,Governor())
