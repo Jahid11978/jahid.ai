@@ -11,6 +11,7 @@ class Worker:
     handler: Callable[[Task], dict[str, Any]]
     governor: Governor
     def run(self, task: Task) -> WorkerResult:
+        """Run a governed task and capture its result and execution evidence."""
         try:
             action=str(task.input.get("action","compute"))
             self.governor.authorize(ActionRequest(action=action,risk=task.risk,autonomy_level=int(task.input.get("autonomy_level",0)),approved=bool(task.input.get("approved",False))))

@@ -4,6 +4,7 @@ import argparse
 from backend.agent_fabric import Agent,AgentGroup,AgentRegistry,Scheduler,Governor,Task
 
 def demo():
+    """Run a local Agent Fabric task and print its result."""
     registry=AgentRegistry()
     registry.register_agent(Agent("planner-1","Planner",frozenset({"plan"}),max_concurrency=2))
     registry.register_agent(Agent("coder-1","Coder",frozenset({"code"})))
@@ -13,6 +14,7 @@ def demo():
     print({"state":result.state.value,"output":dict(result.output),"worker_id":result.worker_id})
 
 def main():
+    """Parse the command-line arguments and run the requested command."""
     parser=argparse.ArgumentParser(prog="jahids")
     parser.add_argument("command",choices=["agent-demo"])
     args=parser.parse_args()

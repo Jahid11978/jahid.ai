@@ -3,21 +3,34 @@ from dataclasses import replace
 from .models import Agent, AgentGroup
 
 class AgentRegistry:
-    def __init__(self): self._agents={}; self._groups={}
+    def __init__(self):
+        """Initialize an empty registry of agents and groups."""
+        self._agents={}; self._groups={}
     def register_agent(self, agent: Agent):
+        """Register and return an agent after validating its concurrency."""
         if agent.max_concurrency < 1: raise ValueError("max_concurrency must be >= 1")
         self._agents[agent.id]=agent; return agent
     def register_group(self, group: AgentGroup):
+        """Register a group and associate each of its agents with it."""
         missing=[x for x in group.agent_ids if x not in self._agents]
         if missing: raise ValueError(f"unknown agents: {missing}")
         self._groups[group.id]=group
         for aid in group.agent_ids: self._agents[aid]=replace(self._agents[aid],group_id=group.id)
         return group
-    def get_agent(self, agent_id): return self._agents[agent_id]
-    def get_group(self, group_id): return self._groups[group_id]
-    def agents(self): return tuple(self._agents.values())
-    def groups(self): return tuple(self._groups.values())
+    def get_agent(self, agent_id):
+        """Return the agent identified by ``agent_id``."""
+        return self._agents[agent_id]
+    def get_group(self, group_id):
+        """Return the agent group identified by ``group_id``."""
+        return self._groups[group_id]
+    def agents(self):
+        """Return all registered agents in registration order."""
+        return tuple(self._agents.values())
+    def groups(self):
+        """Return all registered groups in registration order."""
+        return tuple(self._groups.values())
     def route(self, capability, group_id=None):
+        """Select an enabled agent that provides the requested capability."""
         candidates=self._agents.values() if group_id is None else (self._agents[x] for x in self.get_group(group_id).agent_ids)
         matches=[a for a in candidates if a.enabled and capability in a.capabilities]
         if not matches: raise LookupError(f"no enabled agent for capability: {capability}")
