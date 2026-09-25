@@ -19,6 +19,7 @@ class HealthRegistry:
         self._checks: dict[str, HealthStatus] = {}
 
     def set(self, name: str, status: str, detail: str | None = None) -> None:
+        """Record or replace a component's status with a current UTC check time."""
         self._checks[name] = HealthStatus(
             name=name,
             status=status,
@@ -27,9 +28,15 @@ class HealthRegistry:
         )
 
     def snapshot(self) -> dict[str, dict[str, str | None]]:
+        """Return a copy of each component's latest status and check details."""
         return {name: vars(value).copy() for name, value in self._checks.items()}
 
     def overall(self) -> str:
+        """Summarize component statuses, prioritizing critical then degraded.
+
+        Return ``unknown`` when empty. A recorded ``unknown`` makes the result
+        ``degraded``; other unrecognized status strings count as healthy.
+        """
         statuses = [item.status for item in self._checks.values()]
         if not statuses:
             return "unknown"
