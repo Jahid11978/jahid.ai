@@ -16,6 +16,7 @@ class HealthRegistry:
     """Central registry for component health used by the control plane."""
 
     def __init__(self) -> None:
+        """Start with no recorded component checks."""
         self._checks: dict[str, HealthStatus] = {}
 
     def set(self, name: str, status: str, detail: str | None = None) -> None:

@@ -12,6 +12,7 @@ class MetricsRegistry:
     """
 
     def __init__(self) -> None:
+        """Start with independent, empty counters and sample lists."""
         self._lock = Lock()
         self._counters: dict[str, float] = defaultdict(float)
         self._samples: dict[str, list[float]] = defaultdict(list)
