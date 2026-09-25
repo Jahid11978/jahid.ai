@@ -12,6 +12,7 @@ from backend.telemetry.tracing import trace
 
 class TelemetryEventTests(unittest.TestCase):
     def test_defaults_create_distinct_utc_events(self):
+        """Verify event defaults include unique IDs, UTC time, and separate attributes."""
         first = TelemetryEvent(name="agent.started", source="agent-runtime")
         second = TelemetryEvent(name="agent.started", source="agent-runtime")
 
@@ -26,6 +27,7 @@ class TelemetryEventTests(unittest.TestCase):
         self.assertEqual(second.attributes, {})
 
     def test_explicit_fields_and_nested_attributes_are_serialized_independently(self):
+        """Verify serialization preserves every field and copies nested attributes."""
         event = TelemetryEvent(
             name="workflow.finished", source="scheduler", severity="warning",
             trace_id="trace-1", actor_id="actor-1", agent_id="agent-1",
@@ -46,6 +48,7 @@ class TelemetryEventTests(unittest.TestCase):
         self.assertEqual(event.attributes["result"]["attempts"], [1])
 
     def test_event_fields_cannot_be_reassigned(self):
+        """Verify frozen events reject correlation ID reassignment."""
         event = TelemetryEvent(name="agent.started", source="agent-runtime")
         with self.assertRaises(FrozenInstanceError):
             event.correlation_id = "replacement"
@@ -53,6 +56,7 @@ class TelemetryEventTests(unittest.TestCase):
 
 class MetricsRegistryTests(unittest.TestCase):
     def test_counters_accumulate_and_samples_preserve_order(self):
+        """Verify an empty registry accumulates counters and retains sample order."""
         metrics = MetricsRegistry()
         self.assertEqual(metrics.snapshot(), {"counters": {}, "samples": {}})
         metrics.increment("agent.executions")
@@ -65,6 +69,7 @@ class MetricsRegistryTests(unittest.TestCase):
         })
 
     def test_snapshot_does_not_expose_registry_storage(self):
+        """Verify snapshot mutations and new registries leave stored metrics intact."""
         metrics = MetricsRegistry()
         metrics.increment("requests")
         metrics.observe("latency", 1.0)
@@ -77,9 +82,11 @@ class MetricsRegistryTests(unittest.TestCase):
         self.assertEqual(MetricsRegistry().snapshot(), {"counters": {}, "samples": {}})
 
     def test_concurrent_updates_are_not_lost(self):
+        """Verify concurrent workers retain every counter update and sample."""
         metrics = MetricsRegistry()
 
         def record_batch(_):
+            """Record one hundred requests and latency samples for a worker."""
             for _ in range(100):
                 metrics.increment("requests")
                 metrics.observe("latency", 0.5)
@@ -93,6 +100,7 @@ class MetricsRegistryTests(unittest.TestCase):
 
 class HealthRegistryTests(unittest.TestCase):
     def test_empty_and_mixed_health_states(self):
+        """Verify empty and mixed component statuses produce the expected health."""
         cases = [
             ((), "unknown"),
             (("healthy",), "healthy"),
@@ -108,6 +116,7 @@ class HealthRegistryTests(unittest.TestCase):
                 self.assertEqual(registry.overall(), expected)
 
     def test_rechecking_component_replaces_status_and_detail(self):
+        """Verify rechecks replace status, clear stale detail, and record UTC time."""
         registry = HealthRegistry()
         registry.set("database", "critical", "connection lost")
         self.assertEqual(registry.overall(), "critical")
@@ -122,6 +131,7 @@ class HealthRegistryTests(unittest.TestCase):
         self.assertEqual(datetime.fromisoformat(snapshot["database"]["checked_at"]).tzinfo, timezone.utc)
 
     def test_snapshot_mutations_do_not_change_health(self):
+        """Verify snapshot edits cannot change registered components or health."""
         registry = HealthRegistry()
         registry.set("database", "healthy")
         snapshot = registry.snapshot()
@@ -133,6 +143,7 @@ class HealthRegistryTests(unittest.TestCase):
 
 class RedactionTests(unittest.TestCase):
     def test_all_sensitive_keys_are_redacted_case_insensitively(self):
+        """Verify case-insensitive masking preserves safe fields and the input."""
         sensitive_keys = (
             "AUTHORIZATION", "COOKIE", "PASSWORD", "SECRET", "ToKeN",
             "API_KEY", "ACCESS_TOKEN", "REFRESH_TOKEN",
@@ -149,6 +160,7 @@ class RedactionTests(unittest.TestCase):
         self.assertIsNot(result, attributes)
 
     def test_empty_attributes_and_noncredential_values(self):
+        """Verify redaction preserves empty mappings and safe falsy values."""
         self.assertEqual(redact({}), {})
         metadata = {"duration": 0, "success": False, "reason": None}
         self.assertEqual(redact(metadata), metadata)
@@ -156,6 +168,7 @@ class RedactionTests(unittest.TestCase):
 
 class TraceContextTests(unittest.TestCase):
     def test_generated_trace_ids_are_unique(self):
+        """Verify generated IDs are unique and an implicit trace activates its ID."""
         first = TraceContext.create().trace_id
         second = TraceContext.create().trace_id
         self.assertEqual(UUID(hex=first).hex, first)
@@ -165,6 +178,7 @@ class TraceContextTests(unittest.TestCase):
             self.assertEqual(UUID(hex=context.trace_id).hex, context.trace_id)
 
     def test_nested_traces_restore_parent_and_prior_context(self):
+        """Verify nested trace exits restore the parent and clear the outer ID."""
         with trace("parent"):
             with trace("child"):
                 self.assertEqual(TraceContext.current().trace_id, "child")
@@ -172,6 +186,7 @@ class TraceContextTests(unittest.TestCase):
         self.assertNotIn(TraceContext.current().trace_id, {"parent", "child"})
 
     def test_trace_context_restores_after_exception(self):
+        """Verify a failing child trace restores its parent's active ID."""
         with trace("parent"):
             with self.assertRaisesRegex(RuntimeError, "failed"):
                 with trace("child"):
@@ -181,16 +196,19 @@ class TraceContextTests(unittest.TestCase):
 
 class AsyncTraceContextTests(unittest.IsolatedAsyncioTestCase):
     async def test_concurrent_tasks_keep_their_own_trace_ids(self):
+        """Verify overlapping async tasks retain their own active trace IDs."""
         entered = asyncio.Event()
         release = asyncio.Event()
 
         async def first_task():
+            """Keep the first trace active until the second task releases it."""
             with trace("first"):
                 entered.set()
                 await release.wait()
                 return TraceContext.current().trace_id
 
         async def second_task():
+            """Release the waiting task and read the second trace after yielding."""
             await entered.wait()
             with trace("second"):
                 self.assertEqual(TraceContext.current().trace_id, "second")
