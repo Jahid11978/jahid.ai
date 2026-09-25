@@ -14,7 +14,8 @@ class Scheduler:
         """Route and run a task while enforcing the agent's concurrency limit.
 
         Return a blocked result without invoking the handler when the selected
-        agent is at capacity. Routing errors propagate to the caller.
+        agent is at capacity. Routing errors propagate; worker execution errors
+        are returned as blocked or failed results.
         """
         agent=self.registry.route(task.capability,group_id)
         if self._active[agent.id]>=agent.max_concurrency: return WorkerResult(task.id,WorkerState.BLOCKED,error="agent concurrency limit reached")
