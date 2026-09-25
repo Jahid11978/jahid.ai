@@ -17,14 +17,20 @@ class MetricsRegistry:
         self._samples: dict[str, list[float]] = defaultdict(list)
 
     def increment(self, name: str, value: float = 1.0) -> None:
+        """Add to a named counter, starting at zero for a new name.
+
+        A negative value decreases the counter.
+        """
         with self._lock:
             self._counters[name] += value
 
     def observe(self, name: str, value: float) -> None:
+        """Store a raw sample for a name without assigning a unit or aggregating."""
         with self._lock:
             self._samples[name].append(value)
 
     def snapshot(self) -> dict[str, object]:
+        """Return copies of counter totals and sample lists by name."""
         with self._lock:
             return {
                 "counters": dict(self._counters),
