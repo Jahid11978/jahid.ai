@@ -1,8 +1,8 @@
 import unittest
 
-from memory.encryption import EncryptionBoundary
-from memory.gateway import AllowAllPolicy, MemoryGateway, MemoryType
-from memory.provenance import ProvenanceLog
+from backend.memory.encryption import EncryptionBoundary
+from backend.memory.gateway import AllowAllPolicy, MemoryGateway, MemoryType
+from backend.memory.provenance import ProvenanceLog
 
 
 class MemoryFabricTests(unittest.IsolatedAsyncioTestCase):

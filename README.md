@@ -1,37 +1,23 @@
 # JAHID.AI
 
-Unified AI platform monorepo.
+Unified AI platform monorepo for governed agents, workers, memory, control, reliability and release operations.
 
-## Current baseline: v27.3 — Observability & Telemetry Fabric
+## Platform layers
 
-JAHID.AI consolidates the cognitive core, agent runtime, workflows, skills/tools, operations, security, deployment, GitHub controls, v26.0 Unified Data & Memory Fabric, and v27.3 operational telemetry under one repository governance layer.
+- Agent Fabric: agent registry, groups, capability routing, workers and scheduler.
+- Control Plane: policy-gated missions, approvals and release orchestration.
+- Memory Fabric: working, episodic, semantic, procedural, project, agent and knowledge memory.
+- Observability Fabric: structured events, trace and correlation IDs, metrics, component health and credential redaction.
+- Reliability Fabric: health, bounded recovery, rollback contracts and verification.
+- Release Control: immutable artifact promotion, evidence admission, canary policy and LKG tracking.
+- Security boundary: deny-by-default governance for high-impact actions.
+- Cloudflare layer: Worker deployment and promotion without rebuilding between environments.
 
-### Platform layers
+## Agent execution flow
 
-- Universal Control Plane
-- Cognitive Core and multi-agent orchestration
-- Agent runtime and lifecycle governance
-- Workflow engine
-- Skills and tool registry
-- Research and knowledge systems
-- Unified Memory Gateway
-- Working, episodic, semantic, procedural, project, agent and knowledge memory
-- Retrieval, ranking and provenance
-- Retention, archive, export and deletion
-- AES-256-GCM application encryption boundary
-- PostgreSQL, Redis and vector-store adapter contracts
-- Backup registry, checksum verification and disaster recovery
-- Observability and telemetry fabric
-- Structured agent, workflow, memory and security events
-- Trace and correlation IDs
-- Metrics and component health
-- Credential redaction at telemetry boundaries
-- Voice and vision systems
-- Authentication and access control
-- REST, GraphQL and WebSocket APIs
-- Docker/Kubernetes and Cloudflare deployment layers
-- GitHub Actions CI/CD
-- Governance, ownership and third-party license records
+Request -> Mission -> Task -> Agent Group -> Worker -> Governance -> Registered Adapter -> Evidence -> Verification -> Audit -> Memory
+
+Workers do not receive arbitrary command execution. High-impact actions require explicit approval and registered execution adapters.
 
 ## Observability boundary
 
@@ -53,34 +39,13 @@ Agent / Workflow / Memory / Security
 
 Telemetry is observational. It does not grant permissions, approve actions, or bypass security and human-approval controls. Sensitive fields are redacted before export.
 
-## Memory architecture
+## Local validation
 
-```text
-Agent / Workflow
-      |
-Memory Gateway
-      |
-Permission Check
-      |
-Memory Policy
-      |
-Retrieve / Write
-      |
-Provenance
-      |
-+-------------------------------+
-| PostgreSQL | Redis | Vector DB |
-+-------------------------------+
-      |
-Backup / Recovery / Lifecycle
-```
+    python -m compileall -q backend
+    python -m unittest discover -s backend/tests -v
+    python -m unittest discover -s tests -v
+    python scripts/jahids.py agent-demo
 
-## Development
+See docs/architecture/AGENT_FABRIC.md and docs/architecture/PLATFORM_UNIFIED.md for the platform contracts, and backend/telemetry/README.md for the telemetry boundary.
 
-The memory package lives under `backend/memory/`. The telemetry package lives under `backend/telemetry/`. Local adapters remain deterministic for tests/development. Production storage and telemetry exporters should be injected behind their respective boundaries.
-
-Run the repository tests from the project root with:
-
-```bash
-python -m unittest discover -s backend/tests
-```
+Built by Jahid.

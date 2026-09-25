@@ -1,0 +1,19 @@
+{
+  "release_id": "27.9.0",
+  "artifact": {
+    "digest": "sha256:REPLACE_AT_BUILD",
+    "source_commit": "REPLACE_AT_BUILD",
+    "sbom_digest": "sha256:REPLACE_AT_BUILD",
+    "provenance_digest": "sha256:REPLACE_AT_BUILD",
+    "signature_digest": "sha256:REPLACE_AT_BUILD"
+  },
+  "schema_version": "025",
+  "policy_version": "production-v1",
+  "components": [
+    {"name":"database","kind":"database","version_id":"025","depends_on":[],"rollback_strategy":"forward_fix"},
+    {"name":"api","kind":"service","artifact_digest":"sha256:REPLACE_AT_BUILD","depends_on":["database"],"rollback_strategy":"immutable_artifact"},
+    {"name":"agents","kind":"service","artifact_digest":"sha256:REPLACE_AT_BUILD","depends_on":["api"],"rollback_strategy":"immutable_artifact"},
+    {"name":"worker","kind":"cloudflare_worker","artifact_digest":"sha256:REPLACE_AT_BUILD","version_id":"REPLACE_AFTER_UPLOAD","depends_on":["api"],"rollback_strategy":"cloudflare_version"},
+    {"name":"web","kind":"service","artifact_digest":"sha256:REPLACE_AT_BUILD","depends_on":["api"],"rollback_strategy":"immutable_artifact"}
+  ]
+}
