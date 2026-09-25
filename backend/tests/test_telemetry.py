@@ -1,38 +1,205 @@
+import asyncio
 import unittest
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import FrozenInstanceError
+from datetime import datetime, timezone
+from uuid import UUID
 
-from backend.telemetry.events import TelemetryEvent
-from backend.telemetry.health import HealthRegistry
-from backend.telemetry.metrics import MetricsRegistry
+from backend.telemetry import HealthRegistry, MetricsRegistry, TelemetryEvent, TraceContext
 from backend.telemetry.redaction import redact
-from backend.telemetry.tracing import TraceContext, trace
+from backend.telemetry.tracing import trace
 
 
-class TelemetryTests(unittest.TestCase):
-    def test_event_has_correlation_id(self):
+class TelemetryEventTests(unittest.TestCase):
+    def test_defaults_create_distinct_utc_events(self):
+        first = TelemetryEvent(name="agent.started", source="agent-runtime")
+        second = TelemetryEvent(name="agent.started", source="agent-runtime")
+
+        self.assertEqual(first.severity, "info")
+        self.assertEqual(first.name, "agent.started")
+        self.assertEqual(first.source, "agent-runtime")
+        self.assertEqual(UUID(hex=first.correlation_id).hex, first.correlation_id)
+        self.assertEqual(len(first.correlation_id), 32)
+        self.assertNotEqual(first.correlation_id, second.correlation_id)
+        self.assertEqual(datetime.fromisoformat(first.timestamp).tzinfo, timezone.utc)
+        first.attributes["attempt"] = 1
+        self.assertEqual(second.attributes, {})
+
+    def test_explicit_fields_and_nested_attributes_are_serialized_independently(self):
+        event = TelemetryEvent(
+            name="workflow.finished", source="scheduler", severity="warning",
+            trace_id="trace-1", actor_id="actor-1", agent_id="agent-1",
+            workflow_id="workflow-1", memory_id="memory-1",
+            correlation_id="correlation-1", timestamp="2026-01-01T00:00:00+00:00",
+            attributes={"result": {"attempts": [1]}},
+        )
+
+        exported = event.to_dict()
+        self.assertEqual(exported, {
+            "name": "workflow.finished", "source": "scheduler", "severity": "warning",
+            "trace_id": "trace-1", "actor_id": "actor-1", "agent_id": "agent-1",
+            "workflow_id": "workflow-1", "memory_id": "memory-1",
+            "correlation_id": "correlation-1", "timestamp": "2026-01-01T00:00:00+00:00",
+            "attributes": {"result": {"attempts": [1]}},
+        })
+        exported["attributes"]["result"]["attempts"].append(2)
+        self.assertEqual(event.attributes["result"]["attempts"], [1])
+
+    def test_event_fields_cannot_be_reassigned(self):
         event = TelemetryEvent(name="agent.started", source="agent-runtime")
-        self.assertTrue(event.correlation_id)
-        self.assertEqual(event.to_dict()["name"], "agent.started")
+        with self.assertRaises(FrozenInstanceError):
+            event.correlation_id = "replacement"
 
-    def test_metrics_snapshot(self):
+
+class MetricsRegistryTests(unittest.TestCase):
+    def test_counters_accumulate_and_samples_preserve_order(self):
         metrics = MetricsRegistry()
+        self.assertEqual(metrics.snapshot(), {"counters": {}, "samples": {}})
         metrics.increment("agent.executions")
+        metrics.increment("agent.executions", 2.5)
         metrics.observe("agent.latency_ms", 12.5)
-        self.assertEqual(metrics.snapshot()["counters"]["agent.executions"], 1.0)
+        metrics.observe("agent.latency_ms", 0.0)
+        self.assertEqual(metrics.snapshot(), {
+            "counters": {"agent.executions": 3.5},
+            "samples": {"agent.latency_ms": [12.5, 0.0]},
+        })
 
-    def test_trace_context(self):
-        with trace("trace-123") as context:
-            self.assertEqual(context.trace_id, "trace-123")
-            self.assertEqual(TraceContext.current().trace_id, "trace-123")
+    def test_snapshot_does_not_expose_registry_storage(self):
+        metrics = MetricsRegistry()
+        metrics.increment("requests")
+        metrics.observe("latency", 1.0)
+        snapshot = metrics.snapshot()
+        snapshot["counters"]["requests"] = 99
+        snapshot["samples"]["latency"].append(99.0)
+        self.assertEqual(metrics.snapshot(), {
+            "counters": {"requests": 1.0}, "samples": {"latency": [1.0]},
+        })
+        self.assertEqual(MetricsRegistry().snapshot(), {"counters": {}, "samples": {}})
 
-    def test_health(self):
-        health = HealthRegistry()
-        health.set("database", "healthy")
-        self.assertEqual(health.overall(), "healthy")
+    def test_concurrent_updates_are_not_lost(self):
+        metrics = MetricsRegistry()
 
-    def test_redaction(self):
-        result = redact({"token": "secret", "latency_ms": 10})
-        self.assertEqual(result["token"], "[REDACTED]")
+        def record_batch(_):
+            for _ in range(100):
+                metrics.increment("requests")
+                metrics.observe("latency", 0.5)
+
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            list(executor.map(record_batch, range(8)))
+        snapshot = metrics.snapshot()
+        self.assertEqual(snapshot["counters"]["requests"], 800.0)
+        self.assertEqual(snapshot["samples"]["latency"], [0.5] * 800)
+
+
+class HealthRegistryTests(unittest.TestCase):
+    def test_empty_and_mixed_health_states(self):
+        cases = [
+            ((), "unknown"),
+            (("healthy",), "healthy"),
+            (("healthy", "unknown"), "degraded"),
+            (("healthy", "degraded"), "degraded"),
+            (("healthy", "unknown", "critical"), "critical"),
+        ]
+        for statuses, expected in cases:
+            with self.subTest(statuses=statuses):
+                registry = HealthRegistry()
+                for index, status in enumerate(statuses):
+                    registry.set(f"component-{index}", status)
+                self.assertEqual(registry.overall(), expected)
+
+    def test_rechecking_component_replaces_status_and_detail(self):
+        registry = HealthRegistry()
+        registry.set("database", "critical", "connection lost")
+        self.assertEqual(registry.overall(), "critical")
+        self.assertEqual(registry.snapshot()["database"]["detail"], "connection lost")
+        registry.set("database", "healthy")
+        snapshot = registry.snapshot()
+        self.assertEqual(set(snapshot), {"database"})
+        self.assertEqual(snapshot["database"]["name"], "database")
+        self.assertEqual(snapshot["database"]["status"], "healthy")
+        self.assertIsNone(snapshot["database"]["detail"])
+        self.assertEqual(registry.overall(), "healthy")
+        self.assertEqual(datetime.fromisoformat(snapshot["database"]["checked_at"]).tzinfo, timezone.utc)
+
+    def test_snapshot_mutations_do_not_change_health(self):
+        registry = HealthRegistry()
+        registry.set("database", "healthy")
+        snapshot = registry.snapshot()
+        snapshot["database"]["status"] = "critical"
+        snapshot["cache"] = {"status": "critical"}
+        self.assertEqual(registry.overall(), "healthy")
+        self.assertEqual(set(registry.snapshot()), {"database"})
+
+
+class RedactionTests(unittest.TestCase):
+    def test_all_sensitive_keys_are_redacted_case_insensitively(self):
+        sensitive_keys = (
+            "AUTHORIZATION", "COOKIE", "PASSWORD", "SECRET", "ToKeN",
+            "API_KEY", "ACCESS_TOKEN", "REFRESH_TOKEN",
+        )
+        attributes = {key: f"value-for-{key}" for key in sensitive_keys}
+        attributes["latency_ms"] = 10
+        attributes["token_count"] = 3
+        result = redact(attributes)
+        for key in sensitive_keys:
+            self.assertEqual(result[key], "[REDACTED]")
+            self.assertEqual(attributes[key], f"value-for-{key}")
         self.assertEqual(result["latency_ms"], 10)
+        self.assertEqual(result["token_count"], 3)
+        self.assertIsNot(result, attributes)
+
+    def test_empty_attributes_and_noncredential_values(self):
+        self.assertEqual(redact({}), {})
+        metadata = {"duration": 0, "success": False, "reason": None}
+        self.assertEqual(redact(metadata), metadata)
+
+
+class TraceContextTests(unittest.TestCase):
+    def test_generated_trace_ids_are_unique(self):
+        first = TraceContext.create().trace_id
+        second = TraceContext.create().trace_id
+        self.assertEqual(UUID(hex=first).hex, first)
+        self.assertNotEqual(first, second)
+        with trace() as context:
+            self.assertEqual(TraceContext.current().trace_id, context.trace_id)
+            self.assertEqual(UUID(hex=context.trace_id).hex, context.trace_id)
+
+    def test_nested_traces_restore_parent_and_prior_context(self):
+        with trace("parent"):
+            with trace("child"):
+                self.assertEqual(TraceContext.current().trace_id, "child")
+            self.assertEqual(TraceContext.current().trace_id, "parent")
+        self.assertNotIn(TraceContext.current().trace_id, {"parent", "child"})
+
+    def test_trace_context_restores_after_exception(self):
+        with trace("parent"):
+            with self.assertRaisesRegex(RuntimeError, "failed"):
+                with trace("child"):
+                    raise RuntimeError("failed")
+            self.assertEqual(TraceContext.current().trace_id, "parent")
+
+
+class AsyncTraceContextTests(unittest.IsolatedAsyncioTestCase):
+    async def test_concurrent_tasks_keep_their_own_trace_ids(self):
+        entered = asyncio.Event()
+        release = asyncio.Event()
+
+        async def first_task():
+            with trace("first"):
+                entered.set()
+                await release.wait()
+                return TraceContext.current().trace_id
+
+        async def second_task():
+            await entered.wait()
+            with trace("second"):
+                self.assertEqual(TraceContext.current().trace_id, "second")
+                release.set()
+                await asyncio.sleep(0)
+                return TraceContext.current().trace_id
+
+        first, second = await asyncio.gather(first_task(), second_task())
+        self.assertEqual((first, second), ("first", "second"))
 
 
 if __name__ == "__main__":
