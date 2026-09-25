@@ -24,6 +24,13 @@ class AgentGroup:
     enabled: bool = True
 
 @dataclass(frozen=True)
+class ApprovalDecision:
+    task_id: str
+    action: str
+    actor: str
+    approved: bool
+
+@dataclass(frozen=True)
 class Task:
     id: str
     mission_id: str
@@ -31,6 +38,10 @@ class Task:
     input: Mapping[str, Any] = field(default_factory=dict)
     risk: str = "low"
     requires_approval: bool = False
+    action: str = "compute"
+    actor: str = "system"
+    autonomy_level: int = 0
+    approval: ApprovalDecision | None = None
 
 @dataclass(frozen=True)
 class Mission:

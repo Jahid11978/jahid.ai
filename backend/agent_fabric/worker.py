@@ -17,8 +17,11 @@ class Worker:
         instances to failed results instead of propagating them.
         """
         try:
-            action=str(task.input.get("action","compute"))
-            self.governor.authorize(ActionRequest(action=action,risk=task.risk,autonomy_level=int(task.input.get("autonomy_level",0)),approved=bool(task.input.get("approved",False))))
+            approval=task.approval
+            approved=(approval is not None and approval.approved is True and approval.task_id == task.id and approval.action == task.action and approval.actor == task.actor)
+            if task.requires_approval and not approved:
+                raise PermissionError(f"approval required for action: {task.action}")
+            self.governor.authorize(ActionRequest(action=task.action,risk=task.risk,autonomy_level=task.autonomy_level,approved=approved,actor=task.actor))
             output=self.handler(task)
             evidence=({"type":"worker_result","worker_id":self.id,"task_id":task.id,"agent_id":self.agent.id},)
             return WorkerResult(task.id,WorkerState.SUCCEEDED,output,evidence,worker_id=self.id)

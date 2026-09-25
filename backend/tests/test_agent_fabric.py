@@ -3,11 +3,16 @@ import contextlib
 import io
 import unittest
 from dataclasses import FrozenInstanceError
+from pathlib import Path
+from subprocess import run
+from sys import executable
+from threading import Event, Thread
 from unittest.mock import Mock, patch
 
 from backend.agent_fabric import (
     ActionRequest,
     Agent,
+    ApprovalDecision,
     AgentGroup,
     AgentRegistry,
     GovernanceDecision,
@@ -263,7 +268,7 @@ class WorkerTests(unittest.TestCase):
         worker = Worker("worker-1", self.agent, handler, configured_governor())
 
         result = worker.run(
-            Task("task-1", "mission-1", "code", {"action": "deploy"})
+            Task("task-1", "mission-1", "code", {"action": "deploy"}, action="deploy")
         )
 
         self.assertIs(result.state, WorkerState.BLOCKED)
@@ -279,6 +284,9 @@ class WorkerTests(unittest.TestCase):
             "mission-1",
             "code",
             {"action": "deploy", "approved": True},
+            action="deploy",
+            actor="operator",
+            approval=ApprovalDecision("task-1", "deploy", "operator", True),
         )
 
         result = worker.run(task)
@@ -292,11 +300,36 @@ class WorkerTests(unittest.TestCase):
         worker = Worker("worker-1", self.agent, handler, configured_governor())
 
         result = worker.run(
-            Task("task-1", "mission-1", "code", {"autonomy_level": 6})
+            Task("task-1", "mission-1", "code", {"autonomy_level": 6}, autonomy_level=6)
         )
 
         self.assertIs(result.state, WorkerState.BLOCKED)
         self.assertEqual(result.error, "action denied: compute")
+        handler.assert_not_called()
+
+    def test_payload_cannot_approve_high_impact_action(self):
+        handler = Mock(return_value={"ok": True})
+        worker = Worker("worker-1", self.agent, handler, configured_governor())
+
+        result = worker.run(Task(
+            "task-1", "mission-1", "code", {"approved": True, "autonomy_level": 2},
+            action="deploy",
+        ))
+
+        self.assertIs(result.state, WorkerState.BLOCKED)
+        handler.assert_not_called()
+
+    def test_task_required_approval_is_bound_to_action_and_actor(self):
+        handler = Mock(return_value={"ok": True})
+        worker = Worker("worker-1", self.agent, handler, configured_governor())
+        task = Task(
+            "task-1", "mission-1", "code", requires_approval=True,
+            actor="operator", approval=ApprovalDecision("other", "compute", "operator", True),
+        )
+
+        result = worker.run(task)
+
+        self.assertIs(result.state, WorkerState.BLOCKED)
         handler.assert_not_called()
 
     def test_handler_exception_becomes_failed_result(self):
@@ -360,6 +393,36 @@ class SchedulerTests(unittest.TestCase):
             nested_results[0].error, "agent concurrency limit reached"
         )
 
+    def test_concurrent_dispatch_records_block_and_releases_capacity(self):
+        started, release = Event(), Event()
+        completed = []
+
+        def handler(_task):
+            started.set()
+            release.wait()
+            return {"ok": True}
+
+        first = Thread(target=lambda: completed.append(self.scheduler.dispatch(
+            Task("first", "mission-1", "code"), handler,
+        )), daemon=True)
+        first.start()
+        try:
+            self.assertTrue(started.wait(2))
+            blocked = self.scheduler.dispatch(
+                Task("blocked", "mission-1", "code"), handler,
+            )
+            self.assertIs(blocked.state, WorkerState.BLOCKED)
+            self.assertIs(self.scheduler.results["blocked"], blocked)
+        finally:
+            release.set()
+            first.join(2)
+        self.assertFalse(first.is_alive())
+        self.assertIs(completed[0].state, WorkerState.SUCCEEDED)
+        retried = self.scheduler.dispatch(
+            Task("retried", "mission-1", "code"), lambda _task: {"ok": True},
+        )
+        self.assertIs(retried.state, WorkerState.SUCCEEDED)
+
     def test_dispatch_releases_capacity_after_handler_failure(self):
         failed = self.scheduler.dispatch(
             Task("failed", "mission-1", "code"),
@@ -401,7 +464,7 @@ class SchedulerTests(unittest.TestCase):
             "mission-1",
             "Deploy and continue",
             (
-                Task("deploy", "mission-1", "code", {"action": "deploy"}),
+                Task("deploy", "mission-1", "code", {"action": "deploy"}, action="deploy"),
                 Task("later", "mission-1", "plan"),
             ),
         )
@@ -455,6 +518,7 @@ class SchedulerTests(unittest.TestCase):
         self.assertEqual(len(results), 1)
         self.assertIs(results[0].state, WorkerState.FAILED)
         self.assertEqual(results[0].error, "no handler for capability: review")
+        self.assertIs(self.scheduler.results["unknown"], results[0])
         later_handler.assert_not_called()
 
 
@@ -475,6 +539,15 @@ class CommandLineTests(unittest.TestCase):
                 "worker_id": "worker-demo-1",
             },
         )
+
+    def test_demo_runs_outside_repository_root(self):
+        script = Path(__file__).resolve().parents[2] / "scripts" / "jahids.py"
+        result = run(
+            [executable, str(script), "agent-demo"], cwd="/tmp",
+            capture_output=True, text=True, check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("'state': 'succeeded'", result.stdout)
 
     def test_main_dispatches_agent_demo_command(self):
         with patch.object(jahids, "demo") as demo, patch(

@@ -42,8 +42,12 @@ class AgentRegistry:
         Raises ``KeyError`` for an unknown group and ``LookupError`` when the
         group is disabled or no eligible agent provides the capability.
         """
-        if group_id is not None and not self.get_group(group_id).enabled: raise LookupError(f"disabled group: {group_id}")
-        candidates=self._agents.values() if group_id is None else (self._agents[x] for x in self.get_group(group_id).agent_ids)
+        if group_id is None:
+            candidates=self._agents.values()
+        else:
+            group=self.get_group(group_id)
+            if not group.enabled: raise LookupError(f"disabled group: {group_id}")
+            candidates=(self._agents[x] for x in group.agent_ids)
         matches=[a for a in candidates if a.enabled and capability in a.capabilities]
         if not matches: raise LookupError(f"no enabled agent for capability: {capability}")
         return sorted(matches,key=lambda a:(a.max_concurrency,a.id),reverse=True)[0]
