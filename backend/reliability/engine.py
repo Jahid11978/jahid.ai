@@ -114,6 +114,12 @@ class ReliabilityEngine:
                 ):
                     return self._escalate(plan, RecoveryStage.VERIFY)
                 if not await self._try_run(stage, plan):
+                if (
+                    RecoveryStage.VERIFY not in plan.completed
+                    or plan.verification.get("healthy") is not True
+                ):
+                    return self._escalate(plan, RecoveryStage.VERIFY)
+                if not await self._try_run(stage, plan):
                 if not await self._try_run(stage, plan):
                     return self._escalate(plan, stage)
                 plan.completed.append(stage)
