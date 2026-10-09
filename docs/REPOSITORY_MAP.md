@@ -15,7 +15,7 @@ Several GitHub repositories contain JARVIS, OpenClaw, frontend, and experiment c
 Examples include:
 
 - `Jahid11978/ai-jarvis-system`
-- `Jahid11978/crispy-system.`
+- `Jahid11978/crispy-system`
 - `Jahid11978/openclaw-jahid.ai`
 - `Jahid11978/openclaw-Jahid`
 - `mdjahid11978-design/JARVIS-1`
