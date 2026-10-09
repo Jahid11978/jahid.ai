@@ -43,7 +43,7 @@ def main() -> int:
     if version_path.exists():
         version = version_path.read_text(encoding="utf-8").strip()
         parts = version.split(".")
-        if len(parts) != 3 or not all(part.isdigit() for part in parts):
+        if len(parts) != 3 or not all(part.isascii() and part.isdigit() for part in parts):
             errors.append(f"invalid VERSION value: {version!r}")
 
     for path in ROOT.rglob("*"):
