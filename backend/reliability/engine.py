@@ -33,6 +33,7 @@ class ReliabilityEngine:
         *,
         approval_token: str | None = None,
     ) -> RecoveryPlan:
+        """Execute the policy plan with bounded retries, rollback, and escalation."""
         plan = self.policy.plan(failure)
         if not self.policy.can_execute(plan, approval_token):
             plan.completed.append(RecoveryStage.ESCALATE)
@@ -117,12 +118,14 @@ class ReliabilityEngine:
         stage: RecoveryStage,
         plan: RecoveryPlan,
     ) -> dict[str, Any] | None:
+        """Return the stage handler result, raising if it is missing or fails."""
         handler = self.handlers.get(stage)
         if handler is None:
             raise MissingRecoveryHandler(f"No handler registered for {stage.value}")
         return await handler(plan)
 
     async def _try_run(self, stage: RecoveryStage, plan: RecoveryPlan) -> bool:
+        """Run a required handler, logging failures and returning whether it succeeds."""
         try:
             await self._run_required(stage, plan)
             return True
@@ -135,6 +138,7 @@ class ReliabilityEngine:
 
     @staticmethod
     def _escalate(plan: RecoveryPlan, failed_stage: RecoveryStage) -> RecoveryPlan:
+        """Log the failed stage, mark the plan escalated, and return the same plan."""
         logger.error("Recovery escalated because %s could not complete safely", failed_stage.value)
         if not plan.completed or plan.completed[-1] != RecoveryStage.ESCALATE:
             plan.completed.append(RecoveryStage.ESCALATE)

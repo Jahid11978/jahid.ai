@@ -22,18 +22,23 @@ class ReliabilityTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(plan.completed[-1], RecoveryStage.ESCALATE)
 
     async def test_healthy_verification_allows_resume(self):
+        """Confirm successful handlers and healthy verification allow recovery to resume."""
         engine = ReliabilityEngine()
 
         async def protect(_plan):
+            """Simulate successful protection for the recovery scenario."""
             return {"protected": True}
 
         async def recover(_plan):
+            """Simulate a successful recovery action."""
             return {"recovered": True}
 
         async def verify(_plan):
+            """Report the health result required by this recovery scenario."""
             return {"healthy": True}
 
         async def resume(_plan):
+            """Simulate successfully resuming the recovered component."""
             return {"resumed": True}
 
         engine.register(RecoveryStage.PROTECT, protect)
@@ -51,6 +56,7 @@ class ReliabilityTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(plan.terminal)
 
     async def test_missing_protect_handler_escalates(self):
+        """Confirm missing protection escalates before recovery can run."""
         engine = ReliabilityEngine()
         failure = Failure(
             component="worker",
@@ -62,9 +68,11 @@ class ReliabilityTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn(RecoveryStage.RECOVER, plan.completed)
 
     async def test_missing_recovery_handler_escalates(self):
+        """Confirm missing recovery and rollback handlers lead to escalation."""
         engine = ReliabilityEngine()
 
         async def protect(_plan):
+            """Simulate successful protection for the recovery scenario."""
             return {"protected": True}
 
         engine.register(RecoveryStage.PROTECT, protect)
@@ -78,12 +86,15 @@ class ReliabilityTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn(RecoveryStage.RECOVER, plan.completed)
 
     async def test_missing_verification_escalates(self):
+        """Confirm missing verification escalates without resuming the component."""
         engine = ReliabilityEngine()
 
         async def protect(_plan):
+            """Simulate successful protection for the recovery scenario."""
             return {"protected": True}
 
         async def recover(_plan):
+            """Simulate a successful recovery action."""
             return {"recovered": True}
 
         engine.register(RecoveryStage.PROTECT, protect)
@@ -98,19 +109,24 @@ class ReliabilityTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn(RecoveryStage.RESUME, plan.completed)
 
     async def test_unhealthy_verification_rolls_back_when_handler_exists(self):
+        """Confirm unhealthy verification invokes rollback and terminates recovery."""
         engine = ReliabilityEngine()
         called = []
 
         async def protect(_plan):
+            """Simulate successful protection for the recovery scenario."""
             return {"protected": True}
 
         async def recover(_plan):
+            """Simulate a successful recovery action."""
             return {"recovered": True}
 
         async def verify(_plan):
+            """Report the health result required by this recovery scenario."""
             return {"healthy": False}
 
         async def rollback(_plan):
+            """Record the rollback call and report successful rollback."""
             called.append("rollback")
             return {"rolled_back": True}
 

@@ -28,6 +28,7 @@ FORBIDDEN_PLACEHOLDERS = (
 
 
 def main() -> int:
+    """Print repository errors and warnings; return 1 for errors, otherwise 0."""
     errors: list[str] = []
     warnings: list[str] = []
 
