@@ -12,6 +12,7 @@ class Scheduler:
         """Initialize a scheduler for a registry and optional governor."""
         self.registry=registry; self.governor=governor or Governor(); self.results={}; self._active=defaultdict(int); self._lock=Lock()
     def _record_result(self,result: WorkerResult):
+        """Store a result by task ID under the scheduler lock and return it."""
         with self._lock: self.results[result.task_id]=result
         return result
     def dispatch(self,task: Task,handler: Callable[[Task],dict[str,Any]],group_id=None):
