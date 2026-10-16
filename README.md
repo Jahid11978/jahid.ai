@@ -1,6 +1,45 @@
 # JAHID.AI
 
-Unified AI platform monorepo and controlled agent-engineering system.
+Unified AI platform monorepo for governed agents, workers, memory, control, reliability and release operations.
+
+## Platform layers
+
+- Agent Fabric: agent registry, groups, capability routing, workers and scheduler.
+- Control Plane: policy-gated missions, approvals and release orchestration.
+- Memory Fabric: working, episodic, semantic, procedural, project, agent and knowledge memory.
+- Observability Fabric: structured events, trace and correlation IDs, metrics, component health and credential redaction.
+- Reliability Fabric: health, bounded recovery, rollback contracts and verification.
+- Release Control: immutable artifact promotion, evidence admission, canary policy and LKG tracking.
+- Security boundary: deny-by-default governance for high-impact actions.
+- Cloudflare layer: Worker deployment and promotion without rebuilding between environments.
+
+## Agent execution flow
+
+Request -> Mission -> Task -> Agent Group -> Worker -> Governance -> Registered Adapter -> Evidence -> Verification -> Audit -> Memory
+
+Workers do not receive arbitrary command execution. High-impact actions require explicit approval and registered execution adapters.
+
+## Observability boundary
+
+```text
+Agent / Workflow / Memory / Security
+                |
+        Telemetry Boundary
+                |
+     +----------+----------+
+     |          |          |
+   Events     Metrics    Traces
+     |          |          |
+     +----------+----------+
+                |
+        Health Registry
+                |
+      Universal Control Plane
+```
+
+Telemetry is observational. It does not grant permissions, approve actions, or bypass security and human-approval controls. Sensitive fields are redacted before export.
+
+See docs/architecture/AGENT_FABRIC.md and docs/architecture/PLATFORM_UNIFIED.md for the platform contracts, and backend/telemetry/README.md for the telemetry boundary.
 
 ## Current baseline: v27.9.0 — Full Release Control Plane
 
@@ -90,8 +129,6 @@ python scripts/release/promote.py releases/manifests/v27.9.0.json --environment 
 - Cloudflare deployment boundary
 - Governance, ownership and third-party records
 
-Telemetry is observational. It does not grant permissions, approve actions, or bypass security and human-approval controls. Sensitive fields are redacted before export.
-
 Reliability and release recovery are bounded and deny-by-default. High-impact recovery requires the configured control-plane approval boundary. The system does not invent rollback revisions, bypass authentication, delete data, or perform unapproved external or financial actions.
 
 ## Autonomous GitHub engineering
@@ -174,6 +211,7 @@ python -m compileall -q backend tests scripts
 python -m unittest discover -s backend/tests -p 'test_*.py' -v
 python -m unittest discover -s tests -p 'test_*.py' -v
 python scripts/jahid_doctor.py
+python scripts/jahids.py agent-demo
 ```
 
 ## Safety boundary
@@ -181,3 +219,5 @@ python scripts/jahid_doctor.py
 Autonomous agents may inspect repositories, create branches, prepare fixes, run tests, and open draft PRs. Production deployment, destructive actions, authentication changes, secret changes, financial actions, ownership/licensing changes, and other high-impact operations remain approval-gated.
 
 JAHID.AI must report evidence for every completed action. It must never invent test results, service health, runtime metrics, deployment state, or recovery success.
+
+Built by Jahid.
