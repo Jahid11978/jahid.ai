@@ -28,6 +28,7 @@ FORBIDDEN_PLACEHOLDERS = (
 
 
 def main() -> int:
+    """Check required files and version format, report warnings, and return an error status."""
     errors: list[str] = []
     warnings: list[str] = []
 

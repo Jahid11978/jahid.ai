@@ -21,10 +21,12 @@ class ReliabilityEngine:
     """Deterministic recovery coordinator with bounded retries and fail-closed execution."""
 
     def __init__(self, policy: RecoveryPolicy | None = None) -> None:
+        """Initialize the recovery policy and an empty stage-handler registry."""
         self.policy = policy or RecoveryPolicy()
         self.handlers: dict[RecoveryStage, Handler] = {}
 
     def register(self, stage: RecoveryStage, handler: Handler) -> None:
+        """Set or replace the handler for a recovery stage."""
         self.handlers[stage] = handler
 
     async def recover(
@@ -33,6 +35,7 @@ class ReliabilityEngine:
         *,
         approval_token: str | None = None,
     ) -> RecoveryPlan:
+        """Execute the policy plan with bounded retries, verification, and escalation."""
         plan = self.policy.plan(failure)
         if not self.policy.can_execute(plan, approval_token):
             plan.completed.append(RecoveryStage.ESCALATE)
@@ -114,12 +117,14 @@ class ReliabilityEngine:
         stage: RecoveryStage,
         plan: RecoveryPlan,
     ) -> dict[str, Any] | None:
+        """Run a stage handler, raising MissingRecoveryHandler if none is registered."""
         handler = self.handlers.get(stage)
         if handler is None:
             raise MissingRecoveryHandler(f"No handler registered for {stage.value}")
         return await handler(plan)
 
     async def _try_run(self, stage: RecoveryStage, plan: RecoveryPlan) -> bool:
+        """Run a required handler and return whether it completed without an exception."""
         try:
             await self._run_required(stage, plan)
             return True
@@ -132,6 +137,7 @@ class ReliabilityEngine:
 
     @staticmethod
     def _escalate(plan: RecoveryPlan, failed_stage: RecoveryStage) -> RecoveryPlan:
+        """Log the failed stage and mark the plan escalated unless already marked."""
         logger.error("Recovery escalated because %s could not complete safely", failed_stage.value)
         if not plan.completed or plan.completed[-1] != RecoveryStage.ESCALATE:
             plan.completed.append(RecoveryStage.ESCALATE)
