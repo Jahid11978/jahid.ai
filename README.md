@@ -14,7 +14,7 @@ Unified AI platform monorepo for governed agents, workers, memory, control, reli
 
 ## Agent execution flow
 
-Request -> Mission -> Task -> Agent Group -> Worker -> Governance -> Registered Adapter -> Evidence -> Verification -> Audit -> Memory
+Request -> Mission -> Task -> Agent Group -> Worker -> Governance -> Registered Handler -> Evidence -> Verification -> Audit -> Memory
 
 Workers do not receive arbitrary command execution. High-impact actions require explicit approval and registered execution adapters.
 
